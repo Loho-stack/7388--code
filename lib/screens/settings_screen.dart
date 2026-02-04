@@ -1,0 +1,68 @@
+import 'package:flutter/material.dart';
+import '../services/download_service.dart';
+import '../services/storage_service.dart';
+
+class SettingsScreen extends StatefulWidget {
+  const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Settings'),
+        backgroundColor: const Color(0xFF32a5d7),
+        elevation: 0,
+      ),
+      body: ListView(
+        children: [
+          const SizedBox(height: 16),
+          const Padding(
+            padding: EdgeInsets.all(16),
+            child: Text(
+              'Security',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.lock),
+            title: const Text('Secure Storage'),
+            trailing: const Icon(Icons.check_circle, color: Colors.green),
+          ),
+          ListTile(
+            leading: const Icon(Icons.shield),
+            title: const Text('Offline Access'),
+            trailing: const Icon(Icons.check_circle, color: Colors.green),
+          ),
+          const SizedBox(height: 32),
+          const Padding(
+            padding: EdgeInsets.all(16),
+            child: Text(
+              'About',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          ListTile(
+            title: const Text('App Version'),
+            trailing: const Text('1.0.0'),
+          ),
+          ListTile(
+            title: const Text('Min. Android Version'),
+            trailing: const Text('Android 11 (API 30)'),
+          ),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+}
