@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'login_screen.dart';
 import 'home_screen.dart';
 import '../services/database_service.dart';
 import '../services/storage_service.dart';
+import '../services/auth_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -40,10 +42,17 @@ class _SplashScreenState extends State<SplashScreen> {
     // Wait for minimum splash time (whichever is longer)
     await splashTimer;
 
-    // Navigate to HomeScreen
+    final hasSession = await AuthService.instance.isLoggedIn();
+    final isSessionValid =
+        hasSession ? await AuthService.instance.validateSession() : false;
+
+    // Navigate based on authentication session
     if (mounted) {
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
+        MaterialPageRoute(
+          builder: (context) =>
+              isSessionValid ? const HomeScreen() : const LoginScreen(),
+        ),
       );
     }
   }

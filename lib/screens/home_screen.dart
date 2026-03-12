@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'dart:typed_data';
 import '../models/ebook.dart';
+import '../models/menu_item.dart';
 import '../screens/reader_screen.dart';
 import '../screens/settings_screen.dart';
+import '../screens/category_items_screen.dart';
+import '../screens/webview_content_screen.dart';
 import '../services/database_service.dart';
 import '../services/storage_service.dart';
 import '../services/thumbnail_service.dart';
-import '../services/firestore_service.dart';
-import '../services/cloud_sync_service.dart';
+import '../services/php_api_service.dart';
+import '../services/cloud_sync_service_php.dart';
+import '../services/learner_dashboard_api_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -19,16 +23,18 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final DatabaseService _databaseService = DatabaseService.instance;
   final StorageService _storageService = StorageService.instance;
-  final FirestoreService _firestoreService = FirestoreService.instance;
-  final CloudSyncService _cloudSyncService = CloudSyncService.instance;
-  
+  final PhpApiService _apiService = PhpApiService.instance;
+  final CloudSyncServicePhp _cloudSyncService = CloudSyncServicePhp.instance;
+
   late Future<List<Ebook>> _ebooksFuture;
   late Future<List<Ebook>> _cloudBooksFuture;
   String _searchQuery = '';
   String? _selectedGrade;
   String? _selectedCategory;
   bool _showFilters = false;
-  Map<String, double> _downloadProgress = {}; // Track download progress per book ID
+  // Use ValueNotifier for each download to avoid full page rebuilds
+  Map<String, ValueNotifier<double>> _downloadProgress =
+      {}; // Track download progress per book ID
 
   // Categories list
   final List<String> _categories = [
@@ -44,13 +50,22 @@ class _HomeScreenState extends State<HomeScreen> {
     _syncAndLoadBooks();
   }
 
+  @override
+  void dispose() {
+    // Clean up ValueNotifiers to prevent memory leaks
+    for (var notifier in _downloadProgress.values) {
+      notifier.dispose();
+    }
+    super.dispose();
+  }
+
   Future<void> _syncAndLoadBooks() async {
     // Remove bundled books first (offline-safe)
     await _cloudSyncService.removeBundledBooks();
     // Load local books first (always available, offline or online)
     _loadEbooks();
     _loadCloudBooks();
-    
+
     // Try to sync with Firebase if connected (non-blocking)
     try {
       await _cloudSyncService.syncDownloadedBookMetadata();
@@ -84,19 +99,22 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _downloadBook(Ebook cloudBook) async {
-    setState(() {
-      _downloadProgress[cloudBook.id] = 0.0;
-    });
+    // Create a ValueNotifier for this book's progress
+    final progressNotifier = ValueNotifier<double>(0.0);
+    if (mounted) {
+      setState(() {
+        _downloadProgress[cloudBook.id] = progressNotifier;
+      });
+    } else {
+      _downloadProgress[cloudBook.id] = progressNotifier;
+    }
 
     try {
       final success = await _cloudSyncService.downloadBook(
         cloudBook,
         onProgress: (progress) {
-          if (mounted) {
-            setState(() {
-              _downloadProgress[cloudBook.id] = progress;
-            });
-          }
+          // Only update the ValueNotifier, not the entire widget
+          progressNotifier.value = progress;
         },
       );
 
@@ -119,7 +137,9 @@ class _HomeScreenState extends State<HomeScreen> {
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('❌ Download failed. Please check your internet and try again.'),
+              content: Text(
+                '❌ Download failed. Please check your internet and try again.',
+              ),
               backgroundColor: Colors.red,
               duration: const Duration(seconds: 3),
             ),
@@ -155,7 +175,10 @@ class _HomeScreenState extends State<HomeScreen> {
             prefixIcon: const Icon(Icons.search, color: Color(0xFF36a4da)),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFFe85021), width: 1.5),
+              borderSide: const BorderSide(
+                color: Color(0xFFe85021),
+                width: 1.5,
+              ),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
@@ -177,9 +200,185 @@ class _HomeScreenState extends State<HomeScreen> {
               });
               Navigator.pop(context);
             },
-            child: const Text('Clear', style: TextStyle(color: Color(0xFFe85021))),
+            child: const Text(
+              'Clear',
+              style: TextStyle(color: Color(0xFFe85021)),
+            ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showCategoryMenu() {
+    final menuItems = MenuItem.getDefaultMenuItems();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.75,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Header
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'All Categories',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF36a4da),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: const Icon(
+                    Icons.close,
+                    size: 28,
+                    color: Color(0xFF36a4da),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            // Menu Items
+            Expanded(
+              child: ListView.builder(
+                itemCount: menuItems.length,
+                itemBuilder: (context, index) {
+                  final item = menuItems[index];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: GestureDetector(
+                      onTap: () async {
+                        Navigator.pop(context);
+
+                        final directIntendedByMenuId = <String, String>{
+                          'esoma_kids': '/esoma',
+                          'virtual_labs': '/phet',
+                          'games': '/elimu',
+                          'loho_tv': '/loho-tv',
+                          'leaderboard': '/leaderboard/embed',
+                          'data_learning': '/dals',
+                          'dals_learning': '/dals',
+                        };
+
+                        final intendedPath = directIntendedByMenuId[item.id];
+                        if (intendedPath != null) {
+                          await _openProtectedIntegration(
+                            title: item.title,
+                            intendedPath: intendedPath,
+                          );
+                          return;
+                        }
+
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                CategoryItemsScreen(menuItem: item),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 16,
+                        ),
+                        decoration: BoxDecoration(
+                          color: item.isComingSoon
+                              ? Colors.grey.shade200
+                              : const Color(0xFF35a3d9),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: item.isComingSoon
+                                ? Colors.grey.shade400
+                                : const Color(0xFF35a3d9),
+                            width: 2,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Text(
+                              item.icon,
+                              style: const TextStyle(fontSize: 24),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                item.title,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: item.isComingSoon
+                                      ? Colors.grey.shade600
+                                      : Colors.white,
+                                ),
+                              ),
+                            ),
+                            if (item.isComingSoon)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.shade100,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  'Coming Soon',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.orange.shade800,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openProtectedIntegration({
+    required String title,
+    required String intendedPath,
+  }) async {
+    final targetUrl = 'https://elimupepe.loholearning.co.ke$intendedPath';
+    final webviewLoginUrl = await LearnerDashboardApiService.instance
+        .fetchWebviewLoginUrl(targetUrl: targetUrl);
+
+    if (!mounted) {
+      return;
+    }
+
+    final finalUrl = webviewLoginUrl ?? targetUrl;
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => WebViewContentScreen(
+          title: title,
+          url: finalUrl,
+        ),
       ),
     );
   }
@@ -240,47 +439,58 @@ class _HomeScreenState extends State<HomeScreen> {
                 Wrap(
                   spacing: 12,
                   runSpacing: 12,
-                  children: [
-                    'PP1',
-                    'PP2',
-                    'Grade 1',
-                    'Grade 2',
-                    'Grade 3',
-                    'Grade 4',
-                    'Grade 5',
-                    'Grade 6',
-                    'Grade 7',
-                    'Grade 8',
-                    'Grade 9',
-                  ].map((grade) {
-                    final isSelected = tempGrade == grade;
-                    return GestureDetector(
-                      onTap: () {
-                        setModalState(() {
-                          tempGrade = isSelected ? null : grade;
-                        });
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: isSelected ? const Color(0xFFe85021) : Colors.white,
-                          borderRadius: BorderRadius.circular(25),
-                          border: Border.all(
-                            color: const Color(0xFFe85021),
-                            width: 2,
+                  children:
+                      [
+                        'PP1',
+                        'PP2',
+                        'Grade 1',
+                        'Grade 2',
+                        'Grade 3',
+                        'Grade 4',
+                        'Grade 5',
+                        'Grade 6',
+                        'Grade 7',
+                        'Grade 8',
+                        'Grade 9',
+                        'Grade 10',
+                        'Grade 11',
+                        'Grade 12',
+                      ].map((grade) {
+                        final isSelected = tempGrade == grade;
+                        return GestureDetector(
+                          onTap: () {
+                            setModalState(() {
+                              tempGrade = isSelected ? null : grade;
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? const Color(0xFFe85021)
+                                  : Colors.white,
+                              borderRadius: BorderRadius.circular(25),
+                              border: Border.all(
+                                color: const Color(0xFFe85021),
+                                width: 2,
+                              ),
+                            ),
+                            child: Text(
+                              grade,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: isSelected
+                                    ? Colors.white
+                                    : const Color(0xFF36a4da),
+                              ),
+                            ),
                           ),
-                        ),
-                        child: Text(
-                          grade,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: isSelected ? Colors.white : const Color(0xFF36a4da),
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
+                        );
+                      }).toList(),
                 ),
                 const SizedBox(height: 32),
 
@@ -305,7 +515,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       },
                       child: Container(
                         margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
@@ -452,6 +665,24 @@ class _HomeScreenState extends State<HomeScreen> {
               onPressed: _showSearchDialog,
             ),
           ),
+          // Categories menu icon with circular background
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFF36a4da),
+                shape: BoxShape.circle,
+              ),
+              child: IconButton(
+                icon: const Icon(
+                  Icons.menu_book,
+                  size: 24,
+                  color: Colors.white,
+                ),
+                onPressed: _showCategoryMenu,
+              ),
+            ),
+          ),
           // Library filter icon with circular background
           Padding(
             padding: const EdgeInsets.only(right: 8),
@@ -461,7 +692,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 shape: BoxShape.circle,
               ),
               child: IconButton(
-                icon: const Icon(Icons.filter_list, size: 24, color: Colors.white),
+                icon: const Icon(
+                  Icons.filter_list,
+                  size: 24,
+                  color: Colors.white,
+                ),
                 onPressed: _showFilterSheet,
               ),
             ),
@@ -479,7 +714,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 onPressed: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const SettingsScreen()),
+                    MaterialPageRoute(
+                      builder: (context) => const SettingsScreen(),
+                    ),
                   );
                 },
               ),
@@ -501,7 +738,11 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.error_outline, size: 64, color: Colors.white70),
+                  const Icon(
+                    Icons.error_outline,
+                    size: 64,
+                    color: Colors.white70,
+                  ),
                   const SizedBox(height: 16),
                   Text(
                     'Error: ${snapshot.error}',
@@ -514,21 +755,33 @@ class _HomeScreenState extends State<HomeScreen> {
 
           final allBooks = snapshot.data?[0] ?? [];
           final cloudBooks = snapshot.data?[1] ?? [];
-          
+
           // Filter books based on search, grade, and category
           var filteredBooks = allBooks;
           var filteredCloudBooks = cloudBooks;
-          
+
           if (_searchQuery.isNotEmpty) {
             filteredBooks = filteredBooks
-                .where((e) =>
-                    e.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-                    e.author.toLowerCase().contains(_searchQuery.toLowerCase()))
+                .where(
+                  (e) =>
+                      e.title.toLowerCase().contains(
+                        _searchQuery.toLowerCase(),
+                      ) ||
+                      e.author.toLowerCase().contains(
+                        _searchQuery.toLowerCase(),
+                      ),
+                )
                 .toList();
             filteredCloudBooks = filteredCloudBooks
-                .where((e) =>
-                    e.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-                    e.author.toLowerCase().contains(_searchQuery.toLowerCase()))
+                .where(
+                  (e) =>
+                      e.title.toLowerCase().contains(
+                        _searchQuery.toLowerCase(),
+                      ) ||
+                      e.author.toLowerCase().contains(
+                        _searchQuery.toLowerCase(),
+                      ),
+                )
                 .toList();
           }
           if (_selectedGrade != null) {
@@ -541,8 +794,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 .toList();
           }
           if (_selectedCategory != null) {
-            filteredBooks = filteredBooks.where((e) => e.category == _selectedCategory).toList();
-            filteredCloudBooks = filteredCloudBooks.where((e) => e.category == _selectedCategory).toList();
+            filteredBooks = filteredBooks
+                .where((e) => e.category == _selectedCategory)
+                .toList();
+            filteredCloudBooks = filteredCloudBooks
+                .where((e) => e.category == _selectedCategory)
+                .toList();
           }
 
           return SingleChildScrollView(
@@ -550,25 +807,30 @@ class _HomeScreenState extends State<HomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 24),
-                
+
                 // When filters are applied, show filtered results
-                if (_selectedGrade != null || _selectedCategory != null || _searchQuery.isNotEmpty) ...[
+                if (_selectedGrade != null ||
+                    _selectedCategory != null ||
+                    _searchQuery.isNotEmpty) ...[
                   _buildSectionHeader(
-                    _searchQuery.isNotEmpty 
-                      ? 'Search Results' 
-                      : 'Filtered Books'
+                    _searchQuery.isNotEmpty
+                        ? 'Search Results'
+                        : 'Filtered Books',
                   ),
                   const SizedBox(height: 16),
                   if (filteredBooks.isNotEmpty) ...[
                     _buildBooksCarousel(filteredBooks, isDownloaded: true),
                     const SizedBox(height: 32),
                   ],
-                  
+
                   // Cloud Books Section
                   if (filteredCloudBooks.isNotEmpty) ...[
                     _buildSectionHeader('Available to Download'),
                     const SizedBox(height: 16),
-                    _buildBooksCarousel(filteredCloudBooks, isDownloaded: false),
+                    _buildBooksCarousel(
+                      filteredCloudBooks,
+                      isDownloaded: false,
+                    ),
                     const SizedBox(height: 32),
                   ],
                   if (filteredBooks.isEmpty && filteredCloudBooks.isEmpty) ...[
@@ -577,7 +839,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Center(
                         child: Text(
                           'No books found',
-                          style: TextStyle(color: Colors.white.withOpacity(0.5)),
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.5),
+                          ),
                         ),
                       ),
                     ),
@@ -588,25 +852,30 @@ class _HomeScreenState extends State<HomeScreen> {
                     final downloadedInCategory = allBooks
                         .where((e) => e.category == category)
                         .toList();
-                    
+
                     final cloudInCategory = cloudBooks
                         .where((e) => e.category == category)
                         .toList();
-                    
-                    final hasBooks = downloadedInCategory.isNotEmpty || cloudInCategory.isNotEmpty;
-                    
+
+                    final hasBooks =
+                        downloadedInCategory.isNotEmpty ||
+                        cloudInCategory.isNotEmpty;
+
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _buildSectionHeader(category),
                         const SizedBox(height: 16),
-                        
+
                         // Downloaded books in this category
                         if (downloadedInCategory.isNotEmpty) ...[
-                          _buildBooksCarousel(downloadedInCategory, isDownloaded: true),
+                          _buildBooksCarousel(
+                            downloadedInCategory,
+                            isDownloaded: true,
+                          ),
                           const SizedBox(height: 24),
                         ],
-                        
+
                         // Cloud books in this category
                         if (cloudInCategory.isNotEmpty) ...[
                           Padding(
@@ -631,14 +900,20 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                           const SizedBox(height: 12),
-                          _buildBooksCarousel(cloudInCategory, isDownloaded: false),
+                          _buildBooksCarousel(
+                            cloudInCategory,
+                            isDownloaded: false,
+                          ),
                           const SizedBox(height: 32),
                         ],
-                        
+
                         // Empty state for category
                         if (!hasBooks) ...[
                           Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 40,
+                            ),
                             child: Center(
                               child: Text(
                                 'No books in this category yet',
@@ -655,7 +930,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     );
                   }).toList(),
                 ],
-                
+
                 const SizedBox(height: 40),
               ],
             ),
@@ -679,11 +954,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           const SizedBox(width: 8),
-          const Icon(
-            Icons.arrow_forward,
-            color: Color(0xFFe85020),
-            size: 24,
-          ),
+          const Icon(Icons.arrow_forward, color: Color(0xFFe85020), size: 24),
         ],
       ),
     );
@@ -731,17 +1002,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildBookCard(Ebook book, {required bool isDownloaded}) {
     final isDownloading = _downloadProgress.containsKey(book.id);
-    final progress = _downloadProgress[book.id] ?? 0.0;
-    
+    final progressNotifier = _downloadProgress[book.id];
+
     return GestureDetector(
-      onTap: isDownloaded ? () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ReaderScreen(ebook: book),
-          ),
-        );
-      } : null,
+      onTap: isDownloaded
+          ? () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ReaderScreen(ebook: book),
+                ),
+              );
+            }
+          : null,
       child: Container(
         width: 180,
         margin: const EdgeInsets.only(right: 16),
@@ -763,14 +1036,21 @@ class _HomeScreenState extends State<HomeScreen> {
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(16),
+                  ),
                   color: Colors.grey[200],
                 ),
                 child: ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(16),
+                  ),
                   child: FutureBuilder<Uint8List?>(
                     future: isDownloaded && book.localPath != null
-                        ? _getThumbnail(book.localPath!, coverImagePath: book.coverImagePath)
+                        ? _getThumbnail(
+                            book.localPath!,
+                            coverImagePath: book.coverImagePath,
+                          )
                         : Future.value(null),
                     builder: (context, snapshot) {
                       if (snapshot.hasData && snapshot.data != null) {
@@ -852,36 +1132,40 @@ class _HomeScreenState extends State<HomeScreen> {
                     book.author,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Colors.black54,
-                    ),
+                    style: const TextStyle(fontSize: 12, color: Colors.black54),
                   ),
-                  
+
                   // Download button for cloud books
                   if (!isDownloaded) ...[
                     const SizedBox(height: 8),
                     SizedBox(
                       width: double.infinity,
-                      child: isDownloading
-                          ? Column(
-                              children: [
-                                LinearProgressIndicator(
-                                  value: progress,
-                                  backgroundColor: Colors.grey[300],
-                                  valueColor: const AlwaysStoppedAnimation<Color>(
-                                    Color(0xFF35a3d9),
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '${(progress * 100).toStringAsFixed(0)}%',
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    color: Colors.black54,
-                                  ),
-                                ),
-                              ],
+                      child: isDownloading && progressNotifier != null
+                          ? ListenableBuilder(
+                              listenable: progressNotifier,
+                              builder: (context, child) {
+                                final progress = progressNotifier.value;
+                                return Column(
+                                  children: [
+                                    LinearProgressIndicator(
+                                      value: progress,
+                                      backgroundColor: Colors.grey[300],
+                                      valueColor:
+                                          const AlwaysStoppedAnimation<Color>(
+                                            Color(0xFF35a3d9),
+                                          ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '${(progress * 100).toStringAsFixed(0)}%',
+                                      style: const TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.black54,
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
                             )
                           : ElevatedButton.icon(
                               onPressed: () => _downloadBook(book),
@@ -908,12 +1192,18 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Future<Uint8List?> _getThumbnail(String localPath, {String? coverImagePath}) async {
+  Future<Uint8List?> _getThumbnail(
+    String localPath, {
+    String? coverImagePath,
+  }) async {
     try {
       final storageDir = await _storageService.getEbooksDirectory();
       final fullPath = '${storageDir.path}/$localPath';
       final thumbnailService = ThumbnailService();
-      return await thumbnailService.getThumbnail(fullPath, coverImagePath: coverImagePath);
+      return await thumbnailService.getThumbnail(
+        fullPath,
+        coverImagePath: coverImagePath,
+      );
     } catch (e) {
       return null;
     }

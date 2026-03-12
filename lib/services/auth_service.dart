@@ -1,0 +1,304 @@
+import 'package:dio/dio.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
+class LoginResult {
+  final bool success;
+  final String message;
+
+  const LoginResult({required this.success, required this.message});
+}
+
+class AuthService {
+  static final AuthService instance = AuthService._internal();
+  factory AuthService() => instance;
+  AuthService._internal();
+
+  static const String _baseUrl = 'https://elimupepe.loholearning.co.ke/api';
+  static const String _tokenKey = 'auth_token';
+  static const String _passportTokenKey = 'passport_token';
+  static const String _emailKey = 'auth_email';
+  static const String _userIdKey = 'auth_user_id';
+
+  final Dio _dio = Dio(
+    BaseOptions(
+      baseUrl: _baseUrl,
+      connectTimeout: const Duration(seconds: 20),
+      receiveTimeout: const Duration(seconds: 20),
+      sendTimeout: const Duration(seconds: 20),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+    ),
+  );
+
+  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
+
+  Future<LoginResult> login({
+    required String email,
+    required String password,
+  }) async {
+    try {
+      final normalizedEmail = email.trim();
+      Response<dynamic> response = await _dio.post(
+        '/v1/auth/login',
+        data: {
+          'email': normalizedEmail,
+          'password': password,
+        },
+        options: Options(validateStatus: (_) => true),
+      );
+
+      // Some accounts require confirmation to logout other active devices.
+      // Retry with force=true to complete the login handshake automatically.
+      if (_hasMultipleLoginConflict(response.data)) {
+        response = await _dio.post(
+          '/v1/auth/login',
+          data: {
+            'email': normalizedEmail,
+            'password': password,
+            'force': true,
+          },
+          options: Options(validateStatus: (_) => true),
+        );
+      }
+
+      if (response.statusCode != 200) {
+        final message =
+            _extractErrorMessage(response.data) ?? 'Login failed. Please check your credentials.';
+        return LoginResult(success: false, message: message);
+      }
+
+      final data = response.data;
+      final token = _extractToken(data);
+
+      if (token == null || token.isEmpty) {
+        return const LoginResult(
+          success: false,
+          message: 'Login response missing token.',
+        );
+      }
+
+      var user = _extractUser(data);
+      if (_extractRoleId(user) == null) {
+        final fetchedUser = await _fetchCurrentUser(token);
+        if (fetchedUser.isNotEmpty) {
+          user = fetchedUser;
+        }
+      }
+
+      final roleId = _extractRoleId(user);
+
+      if (roleId != null && roleId != 3) {
+        return const LoginResult(
+          success: false,
+          message:
+              'Access denied. This app is only available to student accounts.',
+        );
+      }
+
+      await _secureStorage.write(key: _tokenKey, value: token);
+      await _secureStorage.write(key: _passportTokenKey, value: token);
+      await _secureStorage.write(key: _emailKey, value: user['email'] ?? normalizedEmail);
+      await _secureStorage.write(
+        key: _userIdKey,
+        value: user['id']?.toString() ?? '',
+      );
+
+      return const LoginResult(success: true, message: 'Login successful');
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
+        return const LoginResult(
+          success: false,
+          message: 'Invalid credentials or account not allowed.',
+        );
+      }
+
+      final serverMessage = _extractErrorMessage(e.response?.data);
+      return LoginResult(
+        success: false,
+        message: serverMessage ?? 'Could not connect to login server.',
+      );
+    } catch (_) {
+      return const LoginResult(
+        success: false,
+        message: 'Unexpected login error. Please try again.',
+      );
+    }
+  }
+
+  Future<void> logout() async {
+    final token = await getToken();
+
+    if (token != null && token.isNotEmpty) {
+      try {
+        await _dio.get(
+          '/v1/auth/logout',
+          options: Options(
+            headers: {'Authorization': 'Bearer $token'},
+          ),
+        );
+      } catch (_) {
+        // Ignore remote logout errors and proceed with local token cleanup.
+      }
+    }
+
+    await _secureStorage.delete(key: _tokenKey);
+    await _secureStorage.delete(key: _passportTokenKey);
+    await _secureStorage.delete(key: _emailKey);
+    await _secureStorage.delete(key: _userIdKey);
+  }
+
+  Future<String?> getToken() async {
+    return _secureStorage.read(key: _tokenKey);
+  }
+
+  Future<bool> isLoggedIn() async {
+    final token = await getToken();
+    return token != null && token.isNotEmpty;
+  }
+
+  Future<bool> validateSession() async {
+    final token = await getToken();
+    if (token == null || token.isEmpty) {
+      return false;
+    }
+
+    try {
+      final response = await _dio.get(
+        '/v1/auth/me',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+      return response.statusCode == 200;
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
+        await logout();
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  String? _extractToken(dynamic payload) {
+    if (payload is! Map<String, dynamic>) {
+      return null;
+    }
+
+    final directToken = payload['token'] ?? payload['access_token'];
+    if (directToken is String && directToken.isNotEmpty) {
+      return directToken;
+    }
+
+    final data = payload['data'];
+    if (data is Map<String, dynamic>) {
+      final nestedToken = data['token'] ?? data['access_token'];
+      if (nestedToken is String && nestedToken.isNotEmpty) {
+        return nestedToken;
+      }
+    }
+
+    return null;
+  }
+
+  Map<String, dynamic> _extractUser(dynamic payload) {
+    if (payload is! Map<String, dynamic>) {
+      return {};
+    }
+
+    final user = payload['user'];
+    if (user is Map<String, dynamic>) {
+      return user;
+    }
+
+    final data = payload['data'];
+    if (data is Map<String, dynamic>) {
+      if (data.containsKey('role_id')) {
+        return data;
+      }
+
+      final nestedUser = data['user'];
+      if (nestedUser is Map<String, dynamic>) {
+        return nestedUser;
+      }
+    }
+
+    return {};
+  }
+
+  String? _extractErrorMessage(dynamic payload) {
+    if (payload is Map<String, dynamic>) {
+      final message = payload['message'] ?? payload['error'];
+      if (message is String && message.isNotEmpty) {
+        return message;
+      }
+    }
+    return null;
+  }
+
+  bool _hasMultipleLoginConflict(dynamic payload) {
+    if (payload is! Map<String, dynamic>) {
+      return false;
+    }
+
+    final multipleLogin =
+        payload['multipleLogin'] ?? payload['multiple_login'] ?? payload['multiple_login_error'];
+    if (multipleLogin is bool) {
+      return multipleLogin;
+    }
+
+    if (multipleLogin is String) {
+      return multipleLogin.toLowerCase() == 'true' || multipleLogin == '1';
+    }
+
+    if (multipleLogin is int) {
+      return multipleLogin == 1;
+    }
+
+    final message = payload['message'];
+    if (message is String) {
+      final normalized = message.toLowerCase();
+      return normalized.contains('already logged in') &&
+          normalized.contains('other device');
+    }
+
+    return false;
+  }
+
+  int? _extractRoleId(Map<String, dynamic> user) {
+    final roleRaw = user['role_id'] ?? user['roleId'];
+    if (roleRaw is int) {
+      return roleRaw;
+    }
+    if (roleRaw is String) {
+      return int.tryParse(roleRaw);
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>> _fetchCurrentUser(String token) async {
+    try {
+      final response = await _dio.get(
+        '/v1/auth/me',
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Accept': 'application/json',
+          },
+        ),
+      );
+
+      final payload = response.data;
+      if (payload is Map<String, dynamic>) {
+        final data = payload['data'];
+        if (data is Map<String, dynamic>) {
+          return data;
+        }
+      }
+    } catch (_) {
+      // If profile fetch fails, return empty map and let role validation fail safely.
+    }
+
+    return {};
+  }
+}
