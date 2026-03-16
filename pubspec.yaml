@@ -111,16 +111,15 @@ flutter:
   # Add bundled ebooks as assets
   assets:
     - assets/images/
-    - assets/animations/
-    - android/app/src/main/assets/ebooks/grade1/
-    - android/app/src/main/assets/ebooks/grade2/
-    - android/app/src/main/assets/ebooks/grade3/
-    - android/app/src/main/assets/ebooks/grade4/
-    - android/app/src/main/assets/ebooks/grade5/
-    - android/app/src/main/assets/ebooks/grade6/
-    - android/app/src/main/assets/ebooks/grade7/
-    - android/app/src/main/assets/ebooks/grade8/
-    - android/app/src/main/assets/ebooks/grade9/
+    - assets/ebooks/grade1/
+    - assets/ebooks/grade2/
+    - assets/ebooks/grade3/
+    - assets/ebooks/grade4/
+    - assets/ebooks/grade5/
+    - assets/ebooks/grade6/
+    - assets/ebooks/grade7/
+    - assets/ebooks/grade8/
+    - assets/ebooks/grade9/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
