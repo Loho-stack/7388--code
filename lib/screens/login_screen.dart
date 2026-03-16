@@ -124,7 +124,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               width: double.infinity,
                               color: Colors.white.withOpacity(0.05),
                               child: Image.asset(
-                                'assets/images/login_students.png',
+                                'assets/images/fam.png',
                                 fit: heroFit,
                                 alignment: isTablet
                                     ? Alignment.center

@@ -1,13 +1,49 @@
 import 'package:flutter/material.dart';
+import '../services/php_api_service.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
-class LeaderboardScreen extends StatelessWidget {
+class LeaderboardScreen extends StatefulWidget {
   const LeaderboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    // Dummy data for the leaderboard
-    final users = [
+  State<LeaderboardScreen> createState() => _LeaderboardScreenState();
+}
+
+class _LeaderboardScreenState extends State<LeaderboardScreen> {
+  List<Map<String, dynamic>> _users = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchLeaderboard();
+  }
+
+  Future<void> _fetchLeaderboard() async {
+    try {
+      final data = await PhpApiService.instance.getLeaderboard();
+      if (mounted) {
+        setState(() {
+          if (data.isNotEmpty) {
+            _users = data;
+          } else {
+            _loadDummyData();
+          }
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loadDummyData();
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  void _loadDummyData() {
+    _users = [
       {
         'name': 'Alex (You)',
         'points': 2450,
@@ -39,7 +75,10 @@ class LeaderboardScreen extends StatelessWidget {
         'avatar': 'https://i.pravatar.cc/150?img=9',
       },
     ];
+  }
 
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF0F8FF),
       appBar: AppBar(
@@ -55,11 +94,13 @@ class LeaderboardScreen extends StatelessWidget {
         ),
         centerTitle: true,
       ),
-      body: ListView.builder(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFFe85021)))
+          : ListView.builder(
         padding: const EdgeInsets.all(20),
-        itemCount: users.length,
+        itemCount: _users.length,
         itemBuilder: (context, index) {
-          final user = users[index];
+          final user = _users[index];
           final isTop3 = index < 3;
 
           Color cardColor = Colors.white;
@@ -111,12 +152,13 @@ class LeaderboardScreen extends StatelessWidget {
                       const SizedBox(width: 16),
                       CircleAvatar(
                         radius: 24,
-                        backgroundImage: NetworkImage(user['avatar'] as String),
+                        backgroundImage: NetworkImage(
+                            user['avatar']?.toString() ?? 'https://i.pravatar.cc/150?u=${index + 1}'),
                       ),
                     ],
                   ),
                   title: Text(
-                    user['name'] as String,
+                    user['name']?.toString() ?? user['username']?.toString() ?? 'Student',
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -127,7 +169,7 @@ class LeaderboardScreen extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        '${user['points']}',
+                        user['points']?.toString() ?? user['score']?.toString() ?? '0',
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,

@@ -159,6 +159,22 @@ class PhpApiService {
     }
   }
 
+  Future<List<Map<String, dynamic>>> getLeaderboard() async {
+    try {
+      final response = await _dio.get('$_baseUrl/quizzes');
+      if (response.statusCode == 200) {
+        final List<dynamic> data = response.data is List
+            ? response.data
+            : response.data['data'] ?? response.data['leaderboard'] ?? [];
+        return data.map((e) => e as Map<String, dynamic>).toList();
+      }
+      return [];
+    } catch (e) {
+      print('Error fetching leaderboard: $e');
+      return [];
+    }
+  }
+
   Future<Map<String, dynamic>> getLatestAppVersion() async {
     try {
       // Adjust the endpoint path to match your PHP server's actual route

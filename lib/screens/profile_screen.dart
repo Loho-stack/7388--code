@@ -28,20 +28,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() {
       _userName = prefs.getString('user_name') ?? 'Alex Learner';
       _lohoId = prefs.getString('loho_id') ?? 'LOHO-12345';
+      _grade = prefs.getString('grade') ?? 'Grade 4';
     });
 
     // 2. Fetch fresh dynamic data from our API
     final apiData = await UserDataService.instance.fetchUserProfile();
     if (apiData != null && mounted) {
       final userData = apiData['data'] ?? apiData['user'] ?? apiData;
-      
+
       setState(() {
         // Pick out fields from API. Update 'name' or 'first_name' depending on your JSON structure
         _userName = userData['name'] ?? userData['first_name'] ?? _userName;
+
+        // Fetch Loho ID or fallback to standard ID/student_id
+        _lohoId =
+            userData['loho_id']?.toString() ??
+            userData['student_id']?.toString() ??
+            _lohoId;
+
+        // Fetch grade and format it if necessary
+        final fetchedGrade = userData['grade'] ?? userData['grade_level'];
+        if (fetchedGrade != null) {
+          _grade = fetchedGrade.toString().toLowerCase().startsWith('grade')
+              ? fetchedGrade.toString()
+              : 'Grade $fetchedGrade';
+        }
       });
 
       // Update local storage so the next immediate load displays the correct fresh data
       await prefs.setString('user_name', _userName);
+      await prefs.setString('loho_id', _lohoId);
+      await prefs.setString('grade', _grade);
     }
   }
 
