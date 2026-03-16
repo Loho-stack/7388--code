@@ -11,12 +11,10 @@ class PhpApiService {
 
   Future<List<Ebook>> getCloudBooks() async {
     try {
-      final response = await _dio.get(
-        '$_baseUrl/books',
-      );
+      final response = await _dio.get('$_baseUrl/books');
       if (response.statusCode == 200) {
-        final List<dynamic> booksJson = response.data is List 
-            ? response.data 
+        final List<dynamic> booksJson = response.data is List
+            ? response.data
             : response.data['data'] ?? response.data['books'] ?? [];
         return booksJson.map((json) {
           return Ebook(
@@ -27,9 +25,9 @@ class PhpApiService {
             fileSize: json['file_size'] ?? json['fileSize'] ?? 0,
             downloadedDate: json['created_at'] != null
                 ? DateTime.tryParse(json['created_at'])
-                : (json['addedDate'] != null 
-                    ? DateTime.tryParse(json['addedDate'])
-                    : DateTime.now()),
+                : (json['addedDate'] != null
+                      ? DateTime.tryParse(json['addedDate'])
+                      : DateTime.now()),
             grade: json['grade'] ?? '',
             category: json['category'] ?? 'Textbooks',
             coverImagePath: json['cover_url'] ?? json['coverUrl'],
@@ -52,8 +50,8 @@ class PhpApiService {
         queryParameters: {'grade': grade},
       );
       if (response.statusCode == 200) {
-        final List<dynamic> booksJson = response.data is List 
-            ? response.data 
+        final List<dynamic> booksJson = response.data is List
+            ? response.data
             : response.data['data'] ?? response.data['books'] ?? [];
         return booksJson.map((json) {
           return Ebook(
@@ -62,7 +60,7 @@ class PhpApiService {
             author: json['author'] ?? json['publisher'] ?? '',
             serverUrl: json['pdf_url'] ?? json['pdfUrl'] ?? '',
             fileSize: json['file_size'] ?? json['fileSize'] ?? 0,
-            downloadedDate: json['created_at'] != null 
+            downloadedDate: json['created_at'] != null
                 ? DateTime.tryParse(json['created_at'])
                 : DateTime.now(),
             grade: json['grade'] ?? '',
@@ -88,8 +86,8 @@ class PhpApiService {
       );
 
       if (response.statusCode == 200) {
-        final List<dynamic> booksJson = response.data is List 
-            ? response.data 
+        final List<dynamic> booksJson = response.data is List
+            ? response.data
             : response.data['data'] ?? response.data['books'] ?? [];
         return booksJson.map((json) {
           return Ebook(
@@ -123,8 +121,8 @@ class PhpApiService {
         queryParameters: {'search': query},
       );
       if (response.statusCode == 200) {
-        final List<dynamic> booksJson = response.data is List 
-            ? response.data 
+        final List<dynamic> booksJson = response.data is List
+            ? response.data
             : response.data['data'] ?? response.data['books'] ?? [];
         return booksJson.map((json) {
           return Ebook(
@@ -133,7 +131,7 @@ class PhpApiService {
             author: json['author'] ?? json['publisher'] ?? '',
             serverUrl: json['pdf_url'] ?? json['pdfUrl'] ?? '',
             fileSize: json['file_size'] ?? json['fileSize'] ?? 0,
-            downloadedDate: json['created_at'] != null 
+            downloadedDate: json['created_at'] != null
                 ? DateTime.tryParse(json['created_at'])
                 : DateTime.now(),
             grade: json['grade'] ?? '',
@@ -153,13 +151,32 @@ class PhpApiService {
 
   Future<bool> deleteBook(String bookId) async {
     try {
-      final response = await _dio.delete(
-        '$_baseUrl/books/$bookId',
-      );
+      final response = await _dio.delete('$_baseUrl/books/$bookId');
       return response.statusCode == 200 || response.statusCode == 204;
     } catch (e) {
       print('Error deleting book: $e');
       return false;
     }
+  }
+
+  Future<Map<String, dynamic>> getLatestAppVersion() async {
+    try {
+      // Adjust the endpoint path to match your PHP server's actual route
+      final response = await _dio.get('$_baseUrl/api/app-version.php');
+
+      if (response.statusCode == 200) {
+        final data = response.data;
+        return {
+          'version': data['version']?.toString() ?? '',
+          'url': data['url']?.toString() ?? '',
+          'release_notes': data['release_notes']?.toString() ?? '',
+          'force_update':
+              data['force_update'] == true || data['force_update'] == 'true',
+        };
+      }
+    } catch (e) {
+      print('Error fetching app version: $e');
+    }
+    return {};
   }
 }

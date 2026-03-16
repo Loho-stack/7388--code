@@ -2,8 +2,11 @@ import 'package:lottie/lottie.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:loho_ebook_reader/screens/home_screen.dart';
 import 'package:loho_ebook_reader/screens/profile_screen.dart';
+import 'package:loho_ebook_reader/services/php_api_service.dart';
 import 'package:loho_ebook_reader/screens/leaderboard_screen.dart';
 
 class GamifiedDashboardScreen extends StatefulWidget {
@@ -16,6 +19,14 @@ class GamifiedDashboardScreen extends StatefulWidget {
 
 class _GamifiedDashboardScreenState extends State<GamifiedDashboardScreen> {
   int _selectedIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkForUpdates();
+    });
+  }
 
   void _onItemTapped(int index) {
     setState(() {
@@ -84,6 +95,120 @@ class _GamifiedDashboardScreenState extends State<GamifiedDashboardScreen> {
     if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
       debugPrint('Could not launch WhatsApp');
     }
+  }
+
+  Future<void> _checkForUpdates() async {
+    try {
+      final PackageInfo packageInfo = await PackageInfo.fromPlatform();
+      final String currentVersion = packageInfo.version;
+
+      final versionData = await PhpApiService.instance.getLatestAppVersion();
+      final String latestVersion =
+          versionData['version']?.toString() ?? currentVersion;
+      final String updateUrl =
+          versionData['url']?.toString() ??
+          "https://loholearning.co.ke/app-release.apk";
+      final String rawReleaseNotes =
+          versionData['release_notes']?.toString() ?? '';
+      final bool isMandatory = versionData['force_update'] == true;
+      final String releaseNotes = rawReleaseNotes.isNotEmpty
+          ? rawReleaseNotes
+          : 'A critical new version of the app is available. Please update to continue learning.';
+
+      if (latestVersion != currentVersion) {
+        if (!mounted) return;
+        _showUpdateDialog(updateUrl, releaseNotes, isMandatory);
+      }
+    } catch (e) {
+      debugPrint('Failed to check for updates: $e');
+    }
+  }
+
+  void _showUpdateDialog(
+    String updateUrl,
+    String releaseNotes,
+    bool isMandatory,
+  ) {
+    showDialog(
+      context: context,
+      barrierDismissible: !isMandatory,
+      builder: (context) => PopScope(
+        canPop: !isMandatory, // Prevents closing via the Android back button
+        child: AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Text(
+            isMandatory ? 'Update Required! 🚀' : 'Update Available! 🚀',
+            style: const TextStyle(
+              color: Color(0xFF0D47A1),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: MarkdownBody(
+                data: releaseNotes,
+                styleSheet: MarkdownStyleSheet(
+                  p: const TextStyle(
+                    fontSize: 15,
+                    color: Colors.black87,
+                    height: 1.4,
+                  ),
+                  h1: const TextStyle(
+                    color: Color(0xFF0D47A1),
+                    fontWeight: FontWeight.bold,
+                  ),
+                  h2: const TextStyle(
+                    color: Color(0xFF0D47A1),
+                    fontWeight: FontWeight.bold,
+                  ),
+                  listBullet: const TextStyle(
+                    color: Color(0xFFe85021),
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          actions: [
+            if (!isMandatory)
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text(
+                  'Later',
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFe85021),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(25),
+                ),
+              ),
+              onPressed: () async {
+                if (!isMandatory) {
+                  Navigator.pop(context);
+                }
+                final Uri url = Uri.parse(updateUrl);
+                if (!await launchUrl(
+                  url,
+                  mode: LaunchMode.externalApplication,
+                )) {
+                  debugPrint('Could not launch update URL');
+                }
+              },
+              child: const Text(
+                'Update Now',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        ).animate().scale(duration: 400.ms, curve: Curves.easeOutBack),
+      ),
+    );
   }
 
   Widget _buildHeader() {

@@ -65,6 +65,9 @@ dependencies:
   webview_flutter: ^4.10.0
 
   path: any
+  package_info_plus: ^9.0.0
+  flutter_markdown: ^0.7.1
+  flutter_launcher_icons: ^0.14.4
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -75,7 +78,6 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
-  flutter_launcher_icons: ^0.14.4
   flutter_native_splash: ^2.4.0
   flutter_animate: ^4.5.0 # For animations
   lottie: ^3.1.2 # Recommended for reward/success animations
@@ -84,10 +86,10 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: false
-  image_path: assets/images/logo.png
+  image_path: assets/images/elimu.png
 web:
   generate: true
-  image_path: "./assets/images/app_icon.png"
+  image_path: "./assets/images/elimu.png"
 
 flutter_native_splash:
   color: "#ffffff"
