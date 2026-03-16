@@ -1,17 +1,14 @@
-import 'package:flutter/material.dart';
-import 'package:pdfx/pdfx.dart';
 import 'dart:io';
-import 'package:path/path.dart' as path;
 import '../models/ebook.dart';
+import 'package:pdfx/pdfx.dart';
+import 'package:flutter/material.dart';
+import 'package:path/path.dart' as path;
 import '../services/storage_service.dart';
 
 class ReaderScreen extends StatefulWidget {
   final Ebook ebook;
 
-  const ReaderScreen({
-    Key? key,
-    required this.ebook,
-  }) : super(key: key);
+  const ReaderScreen({super.key, required this.ebook});
 
   @override
   State<ReaderScreen> createState() => _ReaderScreenState();
@@ -44,11 +41,9 @@ class _ReaderScreenState extends State<ReaderScreen> {
       }
 
       final document = await PdfDocument.openFile(filePath);
-      
+
       setState(() {
-        _pdfController = PdfControllerPinch(
-          document: Future.value(document),
-        );
+        _pdfController = PdfControllerPinch(document: Future.value(document));
         _totalPages = document.pagesCount;
         _isLoading = false;
       });
@@ -80,96 +75,92 @@ class _ReaderScreenState extends State<ReaderScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Error loading PDF',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Text(
+                      _error!,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: () {
+                      setState(() {
+                        _isLoading = true;
+                        _error = null;
+                      });
+                      _initializePdf();
+                    },
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            )
+          : Column(
+              children: [
+                Expanded(
+                  child: Container(
+                    color: Colors.grey[300],
+                    child: PdfViewPinch(
+                      controller: _pdfController!,
+                      scrollDirection: Axis.vertical,
+                      onPageChanged: (page) {
+                        setState(() {
+                          _currentPage = page;
+                        });
+                      },
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  color: Colors.grey[200],
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Icon(
-                        Icons.error_outline,
-                        size: 64,
-                        color: Colors.red,
+                      IconButton(
+                        icon: const Icon(Icons.navigate_before),
+                        onPressed: _currentPage > 1
+                            ? () {
+                                _pdfController?.previousPage(
+                                  duration: const Duration(milliseconds: 300),
+                                  curve: Curves.ease,
+                                );
+                              }
+                            : null,
                       ),
-                      const SizedBox(height: 16),
                       Text(
-                        'Error loading PDF',
-                        style: Theme.of(context).textTheme.titleLarge,
+                        'Page $_currentPage of $_totalPages',
+                        style: Theme.of(context).textTheme.bodyMedium,
                       ),
-                      const SizedBox(height: 8),
-                      Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Text(
-                          _error!,
-                          style: Theme.of(context).textTheme.bodyMedium,
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      ElevatedButton(
-                        onPressed: () {
-                          setState(() {
-                            _isLoading = true;
-                            _error = null;
-                          });
-                          _initializePdf();
-                        },
-                        child: const Text('Retry'),
+                      IconButton(
+                        icon: const Icon(Icons.navigate_next),
+                        onPressed: _currentPage < _totalPages
+                            ? () {
+                                _pdfController?.nextPage(
+                                  duration: const Duration(milliseconds: 300),
+                                  curve: Curves.ease,
+                                );
+                              }
+                            : null,
                       ),
                     ],
                   ),
-                )
-              : Column(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        color: Colors.grey[300],
-                        child: PdfViewPinch(
-                          controller: _pdfController!,
-                          scrollDirection: Axis.vertical,
-                          onPageChanged: (page) {
-                            setState(() {
-                              _currentPage = page;
-                            });
-                          },
-                        ),
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      color: Colors.grey[200],
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.navigate_before),
-                            onPressed: _currentPage > 1
-                                ? () {
-                                    _pdfController?.previousPage(
-                                      duration: const Duration(milliseconds: 300),
-                                      curve: Curves.ease,
-                                    );
-                                  }
-                                : null,
-                          ),
-                          Text(
-                            'Page $_currentPage of $_totalPages',
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.navigate_next),
-                            onPressed: _currentPage < _totalPages
-                                ? () {
-                                    _pdfController?.nextPage(
-                                      duration: const Duration(milliseconds: 300),
-                                      curve: Curves.ease,
-                                    );
-                                  }
-                                : null,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
                 ),
+              ],
+            ),
     );
   }
 }

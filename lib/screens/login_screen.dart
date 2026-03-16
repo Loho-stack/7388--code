@@ -1,6 +1,7 @@
 import 'home_screen.dart';
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -57,6 +58,19 @@ class _LoginScreenState extends State<LoginScreen> {
       ).showSnackBar(SnackBar(content: Text(loginResult.message)));
       return;
     }
+
+    // Save basic dynamic info for the profile screen to read
+    final prefs = await SharedPreferences.getInstance();
+    final emailPrefix = _emailController.text.split('@').first;
+    final capitalizedName = emailPrefix.isNotEmpty
+        ? emailPrefix[0].toUpperCase() + emailPrefix.substring(1)
+        : 'Student';
+    await prefs.setString('user_name', capitalizedName);
+    await prefs.setString('user_email', _emailController.text);
+    await prefs.setString(
+      'loho_id',
+      'LOHO-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}',
+    );
 
     Navigator.of(
       context,

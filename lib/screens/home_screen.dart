@@ -35,9 +35,9 @@ class _HomeScreenState extends State<HomeScreen> {
   String _searchQuery = '';
   String? _selectedGrade;
   String? _selectedCategory;
-  bool _showFilters = false;
+  final bool _showFilters = false;
   // Use ValueNotifier for each download to avoid full page rebuilds
-  Map<String, ValueNotifier<double>> _downloadProgress =
+  final Map<String, ValueNotifier<double>> _downloadProgress =
       {}; // Track download progress per book ID
 
   // Categories list
@@ -230,7 +230,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 '❌ Download failed. Please check your internet and try again.',
               ),
               backgroundColor: Colors.red,
-              duration: const Duration(seconds: 3),
+              duration: Duration(seconds: 3),
             ),
           );
         }
@@ -811,7 +811,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             setState(() => _selectedCategory = category);
                           },
                         );
-                      }).toList(),
+                      }),
                     ],
                   ),
                 ),
@@ -1001,7 +1001,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           book.coverImagePath!,
                           width: double.infinity,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
+                          errorBuilder: (_, _, _) => Container(
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
                                 begin: Alignment.topLeft,

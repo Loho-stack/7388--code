@@ -53,11 +53,6 @@ class ThumbnailService {
       // Generate new thumbnail from PDF
       final document = await PdfDocument.openFile(pdfPath);
       final page = await document.getPage(pageNumber);
-      
-      if (page == null) {
-        document.close();
-        return null;
-      }
 
       // Render page to image (200x300 for thumbnail)
       final image = await page.render(

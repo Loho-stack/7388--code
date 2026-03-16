@@ -1,9 +1,49 @@
 import 'update_profile_screen.dart';
 import 'package:flutter/material.dart';
+import '../services/user_data_service.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  String _userName = 'Loading...';
+  String _lohoId = 'LOHO-...';
+  String _grade = 'Grade 4';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    // 1. Immediately load whatever cached info we have locally
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _userName = prefs.getString('user_name') ?? 'Alex Learner';
+      _lohoId = prefs.getString('loho_id') ?? 'LOHO-12345';
+    });
+
+    // 2. Fetch fresh dynamic data from our API
+    final apiData = await UserDataService.instance.fetchUserProfile();
+    if (apiData != null && mounted) {
+      final userData = apiData['data'] ?? apiData['user'] ?? apiData;
+      
+      setState(() {
+        // Pick out fields from API. Update 'name' or 'first_name' depending on your JSON structure
+        _userName = userData['name'] ?? userData['first_name'] ?? _userName;
+      });
+
+      // Update local storage so the next immediate load displays the correct fresh data
+      await prefs.setString('user_name', _userName);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -72,9 +112,9 @@ class ProfileScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    'Alex Learner',
-                    style: TextStyle(
+                  Text(
+                    _userName,
+                    style: const TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
                       color: Color(0xFF333333),
@@ -90,9 +130,9 @@ class ProfileScreen extends StatelessWidget {
                       color: const Color(0xFF0D47A1).withOpacity(0.1),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: const Text(
-                      'Loho ID: LOHO-12345',
-                      style: TextStyle(
+                    child: Text(
+                      'Loho ID: $_lohoId',
+                      style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
                         color: Color(0xFF0D47A1),
@@ -100,9 +140,12 @@ class ProfileScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  const Text(
-                    'Grade 4 • Explorer',
-                    style: TextStyle(fontSize: 16, color: Colors.blueGrey),
+                  Text(
+                    '$_grade • Explorer',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      color: Colors.blueGrey,
+                    ),
                   ),
                 ],
               ).animate().scale(duration: 500.ms, curve: Curves.easeOutBack),

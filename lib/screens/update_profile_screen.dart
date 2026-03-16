@@ -10,6 +10,19 @@ class UpdateProfileScreen extends StatefulWidget {
 class _UpdateProfileScreenState extends State<UpdateProfileScreen> {
   final _formKey = GlobalKey<FormState>();
 
+  String _selectedAvatar = 'https://i.pravatar.cc/150?img=12';
+
+  final List<String> _availableAvatars = [
+    'https://i.pravatar.cc/150?img=11',
+    'https://i.pravatar.cc/150?img=12',
+    'https://i.pravatar.cc/150?img=13',
+    'https://i.pravatar.cc/150?img=14',
+    'https://i.pravatar.cc/150?img=15',
+    'https://i.pravatar.cc/150?img=5',
+    'https://i.pravatar.cc/150?img=4',
+    'https://i.pravatar.cc/150?img=3',
+  ];
+
   // Form Controllers
   final _nameController = TextEditingController(text: 'Alex Learner');
   final _emailController = TextEditingController(
@@ -42,6 +55,73 @@ class _UpdateProfileScreenState extends State<UpdateProfileScreen> {
       );
       Navigator.pop(context);
     }
+  }
+
+  void _showAvatarPicker() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Choose an Avatar',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0D47A1),
+                ),
+              ),
+              const SizedBox(height: 24),
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 4,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                ),
+                itemCount: _availableAvatars.length,
+                itemBuilder: (context, index) {
+                  final avatarUrl = _availableAvatars[index];
+                  final isSelected = _selectedAvatar == avatarUrl;
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _selectedAvatar = avatarUrl;
+                      });
+                      Navigator.pop(context);
+                    },
+                    child: Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isSelected
+                              ? const Color(0xFF36a4da)
+                              : Colors.transparent,
+                          width: 4,
+                        ),
+                      ),
+                      child: CircleAvatar(
+                        backgroundImage: NetworkImage(avatarUrl),
+                      ),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   void _showDeleteConfirmation() {
@@ -116,20 +196,16 @@ class _UpdateProfileScreenState extends State<UpdateProfileScreen> {
                           width: 3,
                         ),
                       ),
-                      child: const CircleAvatar(
+                      child: CircleAvatar(
                         radius: 60,
-                        backgroundImage: NetworkImage(
-                          'https://i.pravatar.cc/150?img=12',
-                        ),
+                        backgroundImage: NetworkImage(_selectedAvatar),
                       ),
                     ),
                     Positioned(
                       bottom: 0,
                       right: 4,
                       child: GestureDetector(
-                        onTap: () {
-                          // TODO: Implement image picker
-                        },
+                        onTap: _showAvatarPicker,
                         child: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: const BoxDecoration(
