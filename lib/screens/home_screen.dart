@@ -98,7 +98,7 @@ class _HomeScreenState extends State<HomeScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         backgroundColor: Colors.white,
         title: const Text(
-          '🌟 Daily Reward! 🌟',
+          '🌟 Daily Reward! h🌟',
           textAlign: TextAlign.center,
           style: TextStyle(
             color: Color(0xFFe85021),
