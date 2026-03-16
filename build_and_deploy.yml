@@ -3,7 +3,7 @@ name: Build and Deploy Flutter APK
 on:
   push:
     branches:
-      - main # Triggers when you push to the main branch
+      - joe # Triggers when you push to the main branch
 
 jobs:
   build-and-deploy:
