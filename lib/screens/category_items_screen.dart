@@ -1,15 +1,12 @@
-import 'package:flutter/material.dart';
 import '../models/menu_item.dart';
 import 'webview_content_screen.dart';
+import 'package:flutter/material.dart';
 import '../services/learner_dashboard_api_service.dart';
 
 class CategoryItemsScreen extends StatefulWidget {
   final MenuItem menuItem;
 
-  const CategoryItemsScreen({
-    super.key,
-    required this.menuItem,
-  });
+  const CategoryItemsScreen({super.key, required this.menuItem});
 
   @override
   State<CategoryItemsScreen> createState() => _CategoryItemsScreenState();
@@ -39,10 +36,7 @@ class _CategoryItemsScreenState extends State<CategoryItemsScreen> {
         ),
         title: Row(
           children: [
-            Text(
-              widget.menuItem.icon,
-              style: const TextStyle(fontSize: 24),
-            ),
+            Text(widget.menuItem.icon, style: const TextStyle(fontSize: 24)),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -68,10 +62,7 @@ class _CategoryItemsScreenState extends State<CategoryItemsScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(
-            widget.menuItem.icon,
-            style: const TextStyle(fontSize: 80),
-          ),
+          Text(widget.menuItem.icon, style: const TextStyle(fontSize: 80)),
           const SizedBox(height: 24),
           const Text(
             'Coming Soon!',
@@ -87,10 +78,7 @@ class _CategoryItemsScreenState extends State<CategoryItemsScreen> {
             child: Text(
               '${widget.menuItem.title} will be available soon.',
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 16,
-                color: Colors.white70,
-              ),
+              style: const TextStyle(fontSize: 16, color: Colors.white70),
             ),
           ),
         ],
@@ -115,7 +103,11 @@ class _CategoryItemsScreenState extends State<CategoryItemsScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.error_outline, size: 56, color: Colors.white),
+                  const Icon(
+                    Icons.error_outline,
+                    size: 56,
+                    color: Colors.white,
+                  ),
                   const SizedBox(height: 12),
                   Text(
                     'Failed to load ${widget.menuItem.title}',
@@ -161,7 +153,11 @@ class _CategoryItemsScreenState extends State<CategoryItemsScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.inbox_outlined, size: 56, color: Colors.white70),
+                  const Icon(
+                    Icons.inbox_outlined,
+                    size: 56,
+                    color: Colors.white70,
+                  ),
                   const SizedBox(height: 12),
                   Text(
                     'No ${widget.menuItem.title} available yet',
@@ -194,8 +190,10 @@ class _CategoryItemsScreenState extends State<CategoryItemsScreen> {
               ),
               child: ListTile(
                 onTap: () => _openItem(item, title),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
                 leading: CircleAvatar(
                   backgroundColor: const Color(0xFF36a4da).withOpacity(0.15),
                   child: Text(
@@ -222,7 +220,10 @@ class _CategoryItemsScreenState extends State<CategoryItemsScreen> {
                           style: const TextStyle(color: Color(0xFF5C6F8A)),
                         ),
                       ),
-                trailing: const Icon(Icons.chevron_right, color: Color(0xFF5C6F8A)),
+                trailing: const Icon(
+                  Icons.chevron_right,
+                  color: Color(0xFF5C6F8A),
+                ),
               ),
             );
           },
@@ -234,10 +235,13 @@ class _CategoryItemsScreenState extends State<CategoryItemsScreen> {
   String _extractTitle(dynamic item, int index, String menuId) {
     if (item is Map<String, dynamic>) {
       final value = switch (menuId) {
-        'learning_areas' => item['title'] ?? item['course_name'] ?? item['name'],
+        'learning_areas' =>
+          item['title'] ?? item['course_name'] ?? item['name'],
         'virtual_labs' => item['title'] ?? item['lab_title'] ?? item['name'],
-        'elimu_quest' || 'leaderboard' || 'my_questions' || 'games' =>
-          item['title'] ?? item['quiz_title'] ?? item['name'],
+        'elimu_quest' ||
+        'leaderboard' ||
+        'my_questions' ||
+        'games' => item['title'] ?? item['quiz_title'] ?? item['name'],
         'interactive_books' ||
         'non_interactive_books' ||
         'esoma_kids' => item['title'] ?? item['book_title'] ?? item['name'],
@@ -257,8 +261,10 @@ class _CategoryItemsScreenState extends State<CategoryItemsScreen> {
       final value = switch (menuId) {
         'learning_areas' => _buildLearningAreaSubtitle(item),
         'virtual_labs' => _buildLabSubtitle(item),
-        'elimu_quest' || 'leaderboard' || 'my_questions' || 'games' =>
-          _buildQuizSubtitle(item),
+        'elimu_quest' ||
+        'leaderboard' ||
+        'my_questions' ||
+        'games' => _buildQuizSubtitle(item),
         'interactive_books' ||
         'non_interactive_books' ||
         'esoma_kids' => _buildBookSubtitle(item),
@@ -276,7 +282,9 @@ class _CategoryItemsScreenState extends State<CategoryItemsScreen> {
   String? _buildLearningAreaSubtitle(Map<String, dynamic> item) {
     final teacher = _asText(item['assigned_instructor']);
     final percentage = item['totalCompletePercentage'];
-    final progress = percentage is num ? '${percentage.toStringAsFixed(0)}% complete' : null;
+    final progress = percentage is num
+        ? '${percentage.toStringAsFixed(0)}% complete'
+        : null;
 
     if (teacher != null && progress != null) {
       return '$teacher • $progress';
@@ -288,7 +296,7 @@ class _CategoryItemsScreenState extends State<CategoryItemsScreen> {
     final description = _asText(item['description']);
     final publisher = _asText(item['publisher']);
     final language = _asText(item['language']);
-    final subject = _asText(item['subject']);
+    final subject = _asText(item['learning area']);
     final grade = _asText(item['grade']);
 
     if (publisher != null && language != null) {
@@ -343,9 +351,9 @@ class _CategoryItemsScreenState extends State<CategoryItemsScreen> {
       final message = widget.menuItem.id == 'learning_areas'
           ? 'This learning area is not yet linked to content by the server.'
           : 'No direct content URL was provided for this item yet.';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
       return;
     }
 
@@ -366,10 +374,7 @@ class _CategoryItemsScreenState extends State<CategoryItemsScreen> {
 
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => WebViewContentScreen(
-          title: title,
-          url: finalUrl,
-        ),
+        builder: (_) => WebViewContentScreen(title: title, url: finalUrl),
       ),
     );
   }
@@ -405,7 +410,8 @@ class _CategoryItemsScreenState extends State<CategoryItemsScreen> {
       return null;
     }
 
-    final url = item['book_url'] ??
+    final url =
+        item['book_url'] ??
         item['course_url'] ??
         item['quiz_url'] ??
         item['run_url'] ??
@@ -419,5 +425,4 @@ class _CategoryItemsScreenState extends State<CategoryItemsScreen> {
     }
     return null;
   }
-
 }

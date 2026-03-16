@@ -1,8 +1,8 @@
 name: loho_ebook_reader
-description: "LoHo Ebook Reader - Secure offline ebook reading"
+description: " Ebook Reader - Secure offline ebook reading"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
-publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+publish_to: "none" # Remove this line if you wish to publish to pub.dev
 
 # The following defines the version and build number for your application.
 # A version number is three numbers separated by dots, like 1.2.43
@@ -34,30 +34,30 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
-  
+
   # PDF and document viewing
   pdfx: ^2.5.0
-  
+
   # HTTP requests for downloading ebooks
   http: ^1.1.0
   dio: ^5.3.0
-  
+
   # Local storage and file management
   path_provider: ^2.1.0
   file: ^7.0.0
-  
+
   # Database for tracking downloaded ebooks
   sqflite: ^2.3.0
-  
+
   # Secure storage
   flutter_secure_storage: ^9.0.0
-  
+
   # Device info
   device_info_plus: ^9.1.0
-  
+
   # App settings
   shared_preferences: ^2.2.0
-  
+
   # Firebase
   firebase_core: ^3.8.1
   cloud_firestore: ^5.5.1
@@ -76,18 +76,30 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.4
+  flutter_native_splash: ^2.4.0
+  flutter_animate: ^4.5.0 # For animations
+  lottie: ^3.1.2 # Recommended for reward/success animations
+  rive: ^0.13.4 # Recommended for interactive character mascots
 
 flutter_launcher_icons:
   android: true
   ios: false
-  image_path: assets/images/app_icon.png
+  image_path: assets/images/logo.png
+web:
+  generate: true
+  image_path: "./assets/images/app_icon.png"
 
+flutter_native_splash:
+  color: "#ffffff"
+  image: assets/images/trans.png
+  android_12:
+    image: assets/images/trans.png
+    color: "#ffffff"
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
 # The following section is specific to Flutter packages.
 flutter:
-
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
   # the material Icons class.
@@ -96,6 +108,7 @@ flutter:
   # Add bundled ebooks as assets
   assets:
     - assets/images/
+    - assets/animations/
     - android/app/src/main/assets/ebooks/grade1/
     - android/app/src/main/assets/ebooks/grade2/
     - android/app/src/main/assets/ebooks/grade3/

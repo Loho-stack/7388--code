@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "826134506384",
-    "project_id": "loho-ebook-reader",
-    "storage_bucket": "loho-ebook-reader.firebasestorage.app"
+    "project_number": "835456013103",
+    "project_id": "elimupepe-4ce6f",
+    "storage_bucket": "elimupepe-4ce6f.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:826134506384:android:eac663e01e861a920ee115",
+        "mobilesdk_app_id": "1:835456013103:android:f78a9b95c51dafb3a207da",
         "android_client_info": {
           "package_name": "com.example.secure_ebook_reader"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyCC5ggOGPTcougFKOE28pczD8w1AQ1-Me0"
+          "current_key": "AIzaSyBkgGuEYtpwQ10DFmWgrxPVb74Mpl3qfyc"
         }
       ],
       "services": {

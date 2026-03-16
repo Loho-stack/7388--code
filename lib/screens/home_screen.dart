@@ -1,17 +1,21 @@
-import 'package:flutter/material.dart';
 import 'dart:typed_data';
 import '../models/ebook.dart';
 import '../models/menu_item.dart';
+import 'package:flutter/material.dart';
 import '../screens/reader_screen.dart';
 import '../screens/settings_screen.dart';
+import '../services/storage_service.dart';
+import '../services/php_api_service.dart';
+import '../services/database_service.dart';
+import '../services/thumbnail_service.dart';
 import '../screens/category_items_screen.dart';
 import '../screens/webview_content_screen.dart';
-import '../services/database_service.dart';
-import '../services/storage_service.dart';
-import '../services/thumbnail_service.dart';
-import '../services/php_api_service.dart';
 import '../services/cloud_sync_service_php.dart';
+import '../screens/components/category_nav_bar.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../services/learner_dashboard_api_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:loho_ebook_reader/screens/dashboard_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -48,6 +52,11 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _syncAndLoadBooks();
+
+    // Check for daily reward after the first frame renders
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkDailyReward();
+    });
   }
 
   @override
@@ -57,6 +66,86 @@ class _HomeScreenState extends State<HomeScreen> {
       notifier.dispose();
     }
     super.dispose();
+  }
+
+  Future<void> _checkDailyReward() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lastRewardDateStr = prefs.getString('last_reward_date');
+
+    // Get today's date formatted as YYYY-MM-DD
+    final today = DateTime.now();
+    final todayStr =
+        '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+
+    if (lastRewardDateStr != todayStr) {
+      // It's a new day! Show the reward dialog
+      if (mounted) {
+        _showDailyRewardDialog();
+      }
+
+      // Save today's date so it doesn't show again today
+      await prefs.setString('last_reward_date', todayStr);
+
+      // TODO: Add actual reward logic here (e.g., add points/coins to user's profile in database)
+    }
+  }
+
+  void _showDailyRewardDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false, // Force them to interact to claim
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: Colors.white,
+        title: const Text(
+          '🌟 Daily Reward! 🌟',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Color(0xFFe85021),
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.star_rounded, color: Colors.amber, size: 80)
+                .animate(onPlay: (controller) => controller.repeat())
+                .shimmer(duration: 1200.ms, color: Colors.white)
+                .shake(hz: 4, curve: Curves.easeInOut),
+            const SizedBox(height: 16),
+            const Text(
+              'Welcome back! You earned 50 Bonus Points for logging in today!',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 16, color: Colors.black87),
+            ),
+          ],
+        ),
+        actions: [
+          Center(
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF35a3d9),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(25),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 12,
+                ),
+              ),
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'CLAIM REWARD',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ).animate().scale(duration: 400.ms, curve: Curves.easeOutBack),
+    );
   }
 
   Future<void> _syncAndLoadBooks() async {
@@ -210,152 +299,33 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _showCategoryMenu() {
-    final menuItems = MenuItem.getDefaultMenuItems();
+  Future<void> _handleCategoryTap(MenuItem item) async {
+    if (item.isComingSoon) return;
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.75,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'All Categories',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF36a4da),
-                  ),
-                ),
-                GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: const Icon(
-                    Icons.close,
-                    size: 28,
-                    color: Color(0xFF36a4da),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
+    final directIntendedByMenuId = <String, String>{
+      'esoma_kids': '/esoma',
+      'virtual_labs': '/phet',
+      'games': '/elimu',
+      'loho_tv': '/loho-tv',
+      'leaderboard': '/leaderboard/embed',
+      'data_learning': '/dals',
+      'dals_learning': '/dals',
+    };
 
-            // Menu Items
-            Expanded(
-              child: ListView.builder(
-                itemCount: menuItems.length,
-                itemBuilder: (context, index) {
-                  final item = menuItems[index];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: GestureDetector(
-                      onTap: () async {
-                        Navigator.pop(context);
+    final intendedPath = directIntendedByMenuId[item.id];
+    if (intendedPath != null) {
+      await _openProtectedIntegration(
+        title: item.title,
+        intendedPath: intendedPath,
+      );
+      return;
+    }
 
-                        final directIntendedByMenuId = <String, String>{
-                          'esoma_kids': '/esoma',
-                          'virtual_labs': '/phet',
-                          'games': '/elimu',
-                          'loho_tv': '/loho-tv',
-                          'leaderboard': '/leaderboard/embed',
-                          'data_learning': '/dals',
-                          'dals_learning': '/dals',
-                        };
-
-                        final intendedPath = directIntendedByMenuId[item.id];
-                        if (intendedPath != null) {
-                          await _openProtectedIntegration(
-                            title: item.title,
-                            intendedPath: intendedPath,
-                          );
-                          return;
-                        }
-
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                CategoryItemsScreen(menuItem: item),
-                          ),
-                        );
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 16,
-                        ),
-                        decoration: BoxDecoration(
-                          color: item.isComingSoon
-                              ? Colors.grey.shade200
-                              : const Color(0xFF35a3d9),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: item.isComingSoon
-                                ? Colors.grey.shade400
-                                : const Color(0xFF35a3d9),
-                            width: 2,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Text(
-                              item.icon,
-                              style: const TextStyle(fontSize: 24),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                item.title,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: item.isComingSoon
-                                      ? Colors.grey.shade600
-                                      : Colors.white,
-                                ),
-                              ),
-                            ),
-                            if (item.isComingSoon)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.orange.shade100,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  'Coming Soon',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.orange.shade800,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
+    if (!mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CategoryItemsScreen(menuItem: item),
       ),
     );
   }
@@ -375,10 +345,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final finalUrl = webviewLoginUrl ?? targetUrl;
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => WebViewContentScreen(
-          title: title,
-          url: finalUrl,
-        ),
+        builder: (_) => WebViewContentScreen(title: title, url: finalUrl),
       ),
     );
   }
@@ -644,63 +611,40 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF32a5d7),
+      backgroundColor: const Color(0xFFF0F8FF), // Updated to match dashboard
+      drawer: CategoryNavBar(onItemTap: _handleCategoryTap),
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: const Color(0xFF32a5d7),
+        backgroundColor: const Color(0xFFF0F8FF),
         title: const Text(
-          'LoHo Kids Library',
+          'Elimu Library',
           style: TextStyle(
-            fontSize: 24,
+            fontSize: 26,
             fontWeight: FontWeight.bold,
-            color: Colors.white,
+            color: Color(0xFF0D47A1), // Gamified header color
           ),
         ),
         actions: [
           // Search icon
           Padding(
             padding: const EdgeInsets.only(right: 8),
-            child: IconButton(
-              icon: const Icon(Icons.search, size: 26, color: Colors.white),
-              onPressed: _showSearchDialog,
-            ),
-          ),
-          // Categories menu icon with circular background
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
             child: Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFF36a4da),
+              decoration: const BoxDecoration(
+                color: Color(0xFFFFA726),
                 shape: BoxShape.circle,
               ),
               child: IconButton(
                 icon: const Icon(
-                  Icons.menu_book,
+                  Icons.search_rounded,
                   size: 24,
                   color: Colors.white,
                 ),
-                onPressed: _showCategoryMenu,
+                onPressed: _showSearchDialog,
               ),
             ),
           ),
           // Library filter icon with circular background
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFFe84f22),
-                shape: BoxShape.circle,
-              ),
-              child: IconButton(
-                icon: const Icon(
-                  Icons.filter_list,
-                  size: 24,
-                  color: Colors.white,
-                ),
-                onPressed: _showFilterSheet,
-              ),
-            ),
-          ),
+
           // Settings with circular background
           Padding(
             padding: const EdgeInsets.only(right: 12),
@@ -710,7 +654,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 shape: BoxShape.circle,
               ),
               child: IconButton(
-                icon: const Icon(Icons.settings, size: 24, color: Colors.white),
+                icon: const Icon(
+                  Icons.settings_rounded,
+                  size: 24,
+                  color: Colors.white,
+                ),
                 onPressed: () {
                   Navigator.push(
                     context,
@@ -724,6 +672,38 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const GamifiedDashboardScreen(),
+            ),
+          );
+        },
+        backgroundColor: const Color(0xFFe85021),
+        icon: const Icon(Icons.explore_rounded, color: Colors.white),
+        label: const Text(
+          'Learning Areas',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+      ).animate().slideY(begin: 1, duration: 800.ms, curve: Curves.easeOutBack),
+      // SUGGESTION: To add a mascot, you could wrap the body in a Stack
+      // and place the Rive animation in a corner.
+      // body: Stack(
+      //   children: [
+      //     _buildBody(), // The main content, wrapped in a function
+      //     Positioned(
+      //       bottom: 16,
+      //       right: 16,
+      //       child: SizedBox(
+      //         width: 120,
+      //         height: 120,
+      //         child: RiveAnimation.asset('assets/animations/mascot.riv'),
+      //       ),
+      //     ),
+      //   ],
+      // ),
       body: FutureBuilder<List<List<Ebook>>>(
         future: Future.wait([_ebooksFuture, _cloudBooksFuture]),
         builder: (context, snapshot) {
@@ -741,12 +721,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   const Icon(
                     Icons.error_outline,
                     size: 64,
-                    color: Colors.white70,
+                    color: Colors.black45,
                   ),
                   const SizedBox(height: 16),
                   Text(
                     'Error: ${snapshot.error}',
-                    style: const TextStyle(color: Colors.white70),
+                    style: const TextStyle(color: Colors.black54),
                   ),
                 ],
               ),
@@ -802,136 +782,88 @@ class _HomeScreenState extends State<HomeScreen> {
                 .toList();
           }
 
-          return SingleChildScrollView(
+          return DefaultTabController(
+            length: 2,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 24),
-
-                // When filters are applied, show filtered results
-                if (_selectedGrade != null ||
-                    _selectedCategory != null ||
-                    _searchQuery.isNotEmpty) ...[
-                  _buildSectionHeader(
-                    _searchQuery.isNotEmpty
-                        ? 'Search Results'
-                        : 'Filtered Books',
+                // Category Filter Chips
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
                   ),
-                  const SizedBox(height: 16),
-                  if (filteredBooks.isNotEmpty) ...[
-                    _buildBooksCarousel(filteredBooks, isDownloaded: true),
-                    const SizedBox(height: 32),
-                  ],
-
-                  // Cloud Books Section
-                  if (filteredCloudBooks.isNotEmpty) ...[
-                    _buildSectionHeader('Available to Download'),
-                    const SizedBox(height: 16),
-                    _buildBooksCarousel(
-                      filteredCloudBooks,
-                      isDownloaded: false,
-                    ),
-                    const SizedBox(height: 32),
-                  ],
-                  if (filteredBooks.isEmpty && filteredCloudBooks.isEmpty) ...[
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 40),
-                      child: Center(
-                        child: Text(
-                          'No books found',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.5),
-                          ),
-                        ),
+                  child: Row(
+                    children: [
+                      _buildCategoryChip(
+                        'All Categories',
+                        _selectedCategory == null,
+                        () {
+                          setState(() => _selectedCategory = null);
+                        },
                       ),
-                    ),
-                  ],
-                ] else ...[
-                  // Show all categories with both downloaded and cloud books
-                  ..._categories.map((category) {
-                    final downloadedInCategory = allBooks
-                        .where((e) => e.category == category)
-                        .toList();
+                      ..._categories.map((category) {
+                        return _buildCategoryChip(
+                          category,
+                          _selectedCategory == category,
+                          () {
+                            setState(() => _selectedCategory = category);
+                          },
+                        );
+                      }).toList(),
+                    ],
+                  ),
+                ),
 
-                    final cloudInCategory = cloudBooks
-                        .where((e) => e.category == category)
-                        .toList();
-
-                    final hasBooks =
-                        downloadedInCategory.isNotEmpty ||
-                        cloudInCategory.isNotEmpty;
-
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildSectionHeader(category),
-                        const SizedBox(height: 16),
-
-                        // Downloaded books in this category
-                        if (downloadedInCategory.isNotEmpty) ...[
-                          _buildBooksCarousel(
-                            downloadedInCategory,
-                            isDownloaded: true,
-                          ),
-                          const SizedBox(height: 24),
-                        ],
-
-                        // Cloud books in this category
-                        if (cloudInCategory.isNotEmpty) ...[
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 20),
-                            child: Row(
-                              children: [
-                                const Icon(
-                                  Icons.cloud_download,
-                                  color: Color(0xFFe85021),
-                                  size: 18,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Available to Download',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontStyle: FontStyle.italic,
-                                    color: Colors.white.withOpacity(0.7),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          _buildBooksCarousel(
-                            cloudInCategory,
-                            isDownloaded: false,
-                          ),
-                          const SizedBox(height: 32),
-                        ],
-
-                        // Empty state for category
-                        if (!hasBooks) ...[
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 40,
-                            ),
-                            child: Center(
-                              child: Text(
-                                'No books in this category yet',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.white.withOpacity(0.4),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 32),
-                        ],
+                // Tabs
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(25),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: TabBar(
+                    indicatorSize: TabBarIndicatorSize.tab,
+                    dividerColor: Colors.transparent,
+                    indicator: BoxDecoration(
+                      color: const Color(0xFFe85021),
+                      borderRadius: BorderRadius.circular(25),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFe85021).withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
                       ],
-                    );
-                  }).toList(),
-                ],
+                    ),
+                    labelColor: Colors.white,
+                    unselectedLabelColor: Colors.black54,
+                    labelStyle: const TextStyle(fontWeight: FontWeight.bold),
+                    tabs: const [
+                      Tab(text: 'My Books'),
+                      Tab(text: 'Discover'),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
 
-                const SizedBox(height: 40),
+                // Tab Views
+                Expanded(
+                  child: TabBarView(
+                    children: [
+                      _buildBookGrid(filteredBooks, isDownloaded: true),
+                      _buildBookGrid(filteredCloudBooks, isDownloaded: false),
+                    ],
+                  ),
+                ),
               ],
             ),
           );
@@ -940,63 +872,69 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildSectionHeader(String title) {
+  Widget _buildCategoryChip(String label, bool isSelected, VoidCallback onTap) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Row(
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
+      padding: const EdgeInsets.only(right: 8.0),
+      child: ChoiceChip(
+        label: Text(label),
+        selected: isSelected,
+        onSelected: (_) => onTap(),
+        selectedColor: const Color(0xFF36a4da),
+        labelStyle: TextStyle(
+          color: isSelected ? Colors.white : Colors.black87,
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        ),
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(
+            color: isSelected ? const Color(0xFF36a4da) : Colors.grey.shade300,
           ),
-          const SizedBox(width: 8),
-          const Icon(Icons.arrow_forward, color: Color(0xFFe85020), size: 24),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildBooksCarousel(List<Ebook> books, {required bool isDownloaded}) {
+  Widget _buildBookGrid(List<Ebook> books, {required bool isDownloaded}) {
     if (books.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
-        child: Center(
-          child: Column(
-            children: [
-              Icon(
-                Icons.library_books,
-                size: 64,
-                color: Colors.white.withOpacity(0.3),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'No books available',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.white.withOpacity(0.5),
-                ),
-              ),
-            ],
-          ),
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Image.asset('assets/images/app_icon.png', width: 64, height: 64),
+            const SizedBox(height: 16),
+            const Text(
+              'No books available',
+              style: TextStyle(fontSize: 16, color: Colors.black45),
+            ),
+          ],
         ),
       );
     }
 
-    return SizedBox(
-      height: isDownloaded ? 280 : 320, // Extra height for download button
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        itemCount: books.length,
-        itemBuilder: (context, index) {
-          final book = books[index];
-          return _buildBookCard(book, isDownloaded: isDownloaded);
-        },
+    return GridView.builder(
+      padding: const EdgeInsets.fromLTRB(
+        16,
+        0,
+        16,
+        80,
+      ), // Padding at bottom for FAB
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: isDownloaded
+            ? 0.65
+            : 0.52, // adjust for download button
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
       ),
+      itemCount: books.length,
+      itemBuilder: (context, index) {
+        final book = books[index];
+        return _buildBookCard(book, isDownloaded: isDownloaded)
+            .animate()
+            .fadeIn(duration: 400.ms, delay: (50 * index).ms)
+            .slideY(begin: 0.1, duration: 400.ms, curve: Curves.easeOut);
+      },
     );
   }
 
@@ -1016,8 +954,6 @@ class _HomeScreenState extends State<HomeScreen> {
             }
           : null,
       child: Container(
-        width: 180,
-        margin: const EdgeInsets.only(right: 16),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
           color: Colors.white,
@@ -1076,11 +1012,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ],
                               ),
                             ),
-                            child: const Center(
-                              child: Icon(
-                                Icons.menu_book,
-                                size: 60,
-                                color: Colors.white70,
+                            child: Center(
+                              child: Image.asset(
+                                'assets/images/app_icon.png',
+                                width: 60,
+                                height: 60,
                               ),
                             ),
                           ),
@@ -1097,11 +1033,11 @@ class _HomeScreenState extends State<HomeScreen> {
                             ],
                           ),
                         ),
-                        child: const Center(
-                          child: Icon(
-                            Icons.menu_book,
-                            size: 60,
-                            color: Colors.white70,
+                        child: Center(
+                          child: Image.asset(
+                            'assets/images/app_icon.png',
+                            width: 60,
+                            height: 60,
                           ),
                         ),
                       );
@@ -1155,6 +1091,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                             Color(0xFF35a3d9),
                                           ),
                                     ),
+                                    // SUGGESTION: Replace LinearProgressIndicator with a Lottie animation
+                                    // for a more engaging progress display, like a rocket filling up.
+                                    // e.g., Lottie.asset('assets/animations/progress.json', controller: _animationController)
+                                    // You would need to manage an AnimationController based on the download progress.
                                     const SizedBox(height: 4),
                                     Text(
                                       '${(progress * 100).toStringAsFixed(0)}%',

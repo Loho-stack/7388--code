@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
 import 'home_screen.dart';
+import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -52,15 +52,15 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     if (!loginResult.success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loginResult.message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loginResult.message)));
       return;
     }
 
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const HomeScreen()),
-    );
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute(builder: (_) => const HomeScreen()));
   }
 
   @override
@@ -69,9 +69,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final shortestSide = screenSize.shortestSide;
     final isTablet = shortestSide >= 600;
     final isLandscape = screenSize.width > screenSize.height;
-    final heroAspectRatio = isTablet
-        ? (isLandscape ? 2.8 : 1.55)
-        : 1.75;
+    final heroAspectRatio = isTablet ? (isLandscape ? 2.8 : 1.55) : 1.75;
     final heroFit = isTablet ? BoxFit.contain : BoxFit.cover;
 
     return Scaffold(
@@ -94,9 +92,14 @@ class _LoginScreenState extends State<LoginScreen> {
               builder: (context, constraints) {
                 return SingleChildScrollView(
                   physics: const ClampingScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
                   child: ConstrainedBox(
-                    constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
+                    ),
                     child: Column(
                       children: [
                         ClipRRect(
@@ -109,12 +112,16 @@ class _LoginScreenState extends State<LoginScreen> {
                               child: Image.asset(
                                 'assets/images/login_students.png',
                                 fit: heroFit,
-                                alignment: isTablet ? Alignment.center : Alignment.topCenter,
+                                alignment: isTablet
+                                    ? Alignment.center
+                                    : Alignment.topCenter,
                                 errorBuilder: (context, error, stackTrace) {
                                   return Image.asset(
                                     'assets/images/kid_reading.png',
                                     fit: heroFit,
-                                    alignment: isTablet ? Alignment.center : Alignment.topCenter,
+                                    alignment: isTablet
+                                        ? Alignment.center
+                                        : Alignment.topCenter,
                                   );
                                 },
                               ),
@@ -217,7 +224,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           onPressed: () {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text('Please contact admin for password reset.'),
+                                content: Text(
+                                  'Please contact admin for password reset.',
+                                ),
                               ),
                             );
                           },

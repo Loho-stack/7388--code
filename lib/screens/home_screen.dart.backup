@@ -92,7 +92,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             const SizedBox(width: 16),
-            const Text('LoHo Ebook Reader'),
+            const Text('Elimu Pepe'),
           ],
         ),
         backgroundColor: const Color(0xFF36a4da),
@@ -189,7 +189,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       padding: const EdgeInsets.all(20),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
+                        children: 
                           // Left decorative section
                           Expanded(
                             flex: 1,
@@ -303,7 +303,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       colors: [Color(0xFF36a4da), Color(0xFFe85021)],
                     ).createShader(bounds),
                     child: Text(
-                      'LoHo Kids Library',
+                      'Elimu Library',
                       style: TextStyle(
                         fontSize: 32,
                         fontWeight: FontWeight.bold,
