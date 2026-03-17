@@ -18,7 +18,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:loho_ebook_reader/screens/dashboard_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, this.scaffoldKey});
+
+  final GlobalKey<ScaffoldState>? scaffoldKey;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -611,6 +613,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: widget.scaffoldKey,
       backgroundColor: const Color(0xFFF0F8FF), // Updated to match dashboard
       drawer: CategoryNavBar(onItemTap: _handleCategoryTap),
       appBar: AppBar(

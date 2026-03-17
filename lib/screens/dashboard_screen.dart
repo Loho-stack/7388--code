@@ -18,6 +18,7 @@ class GamifiedDashboardScreen extends StatefulWidget {
 
 class _GamifiedDashboardScreenState extends State<GamifiedDashboardScreen> {
   int _selectedIndex = 0;
+  final GlobalKey<ScaffoldState> _homeScaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
   void initState() {
@@ -28,6 +29,16 @@ class _GamifiedDashboardScreenState extends State<GamifiedDashboardScreen> {
   }
 
   void _onItemTapped(int index) {
+    if (index == 2) {
+      setState(() {
+        _selectedIndex = 1;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _homeScaffoldKey.currentState?.openDrawer();
+      });
+      return;
+    }
+
     setState(() {
       _selectedIndex = index;
     });
@@ -80,7 +91,7 @@ class _GamifiedDashboardScreenState extends State<GamifiedDashboardScreen> {
         index: _selectedIndex,
         children: [
           _buildDashboardContent(), // 0: The Learning Map
-          const HomeScreen(), // 1: The original Library
+          HomeScreen(scaffoldKey: _homeScaffoldKey), // 1: The original Library
           const LeaderboardScreen(), // 2: The New Gamified Leaderboard
           const ProfileScreen(), // 3: The New Profile/Badges Screen
         ],
@@ -639,7 +650,7 @@ class _GamifiedDashboardScreenState extends State<GamifiedDashboardScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.explore_outlined, size: 28),
             activeIcon: Icon(Icons.explore_rounded, size: 28),
-            label: 'Map',
+            label: 'home',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.local_library_outlined, size: 28),
@@ -649,7 +660,7 @@ class _GamifiedDashboardScreenState extends State<GamifiedDashboardScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.emoji_events_outlined, size: 28),
             activeIcon: Icon(Icons.emoji_events_rounded, size: 28),
-            label: 'Leaderboard',
+            label: 'Menu',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline_rounded, size: 28),
