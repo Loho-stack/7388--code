@@ -3,7 +3,7 @@ name: Google Play Store Deploy
 on:
   push:
     tags:
-      - 'v*' # Trigger on version tags like v1.2.3
+      - "v*" # Trigger on version tags like v1.2.3
   workflow_dispatch: # Allow manual triggering
 
 jobs:
@@ -17,17 +17,23 @@ jobs:
       - name: ☕ Setup Java
         uses: actions/setup-java@v3
         with:
-          distribution: 'zulu'
-          java-version: '17'
+          distribution: "zulu"
+          java-version: "17"
 
       - name: 🐦 Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: 'stable'
+          channel: "stable"
           cache: true
 
       - name: 📦 Install Dependencies
         run: flutter pub get
+
+      - name: 🔍 Analyze Code
+        run: flutter analyze
+
+      - name: 🧪 Run Tests
+        run: flutter test
 
       - name: 🔑 Decode Keystore
         run: |
@@ -47,7 +53,7 @@ jobs:
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonKeyData: ${{ secrets.SERVICE_ACCOUNT_JSON }}
-          packageName: com.loho.ebookreader
+          packageName: com.loho.elimupepe
           releaseFiles: build/app/outputs/bundle/release/app-release.aab
           track: internal
           status: completed
